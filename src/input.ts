@@ -12,7 +12,7 @@ const userSchema = {
         rootUrl: {
             type: "string",
             format: "url",
-            default: "https://www.fieldglass.net/",
+            default: "https://www.fieldglass.net",
         },
         username: {
             type: "string",
@@ -66,6 +66,6 @@ export const fieldglassInputSchema = {
             additionalProperties: false,
         },
     },
-    required: ["job_id", "portal_id", "eventBus", "user"],
+    required: ["user"],
     additionalProperties: false,
 } as const satisfies JSONSchema;

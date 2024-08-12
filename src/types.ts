@@ -8,10 +8,11 @@ import {
     BaseExtractorOptions,
     BaseScraperData,
     BaseScraperOptions,
+    MontoInvoice
 } from "@montopay/base-scraper/types";
 import { fieldglassInputSchema } from "./input.ts";
 
-export type FgInput = FromSchema<typeof fieldglassInputSchema>;
+export type FieldglassInput = FromSchema<typeof fieldglassInputSchema>;
 
 export type FieldglassCredentials = BaseCredentials;
 
@@ -35,23 +36,23 @@ export type FieldglassAuthentication = {
     username: string;
 }
 
-export type MontoInvoice = {
-    portal_name: string;
-    // type: MontoDataTypes;
-    id_on_portal: string;
-    invoice_number: string;
-    portal_invoice_number?: string;
-    po_number?: string;
-    buyer: string;
-    status: string;
-    invoice_date: Date;
-    due_date?: Date;
-    currency: string;
-    total: number;
-    portal_user_id?: string;
-    portal_user?: string;
-    username?: string;
-};
+// export type MontoInvoice = {
+//     portal_name: string;
+//     // type: MontoDataTypes;
+//     id_on_portal: string;
+//     invoice_number: string;
+//     portal_invoice_number?: string;
+//     po_number?: string;
+//     buyer: string;
+//     status: string;
+//     invoice_date: Date;
+//     due_date?: Date;
+//     currency: string;
+//     total: number;
+//     portal_user_id?: string;
+//     portal_user?: string;
+//     username?: string;
+// };
 
 export enum MontoInvoiceStatus {
     APPROVED = "Approved",
@@ -80,7 +81,7 @@ export enum MontoDataTypes {
 }
 
 export type FieldglassExtractors = {
-    invoices?: BaseExtractor<FieldglassCredentials, MontoInvoice>;
+    invoices?: BaseExtractor<FieldglassInvoice, MontoInvoice>;
 };
 
 export type FieldglassScraperOptions = BaseScraperOptions<FieldglassAuthentication> & {
@@ -93,4 +94,29 @@ export interface FgWindow extends Window {
     _CSRF_TOKEN_VALUE: string;
     _API_TOKEN_VALUE: string;
     __cid: string;
+    getDateFormat: () => string;
 }
+
+// Define a mapping for date-fns
+export const formatMapping: { [key: string]: string } = {
+    'MM/DD/YYYY': 'MM/dd/yyyy',
+    'DD/MM/YYYY': 'dd/MM/yyyy',
+    'YYYY/MM/DD': 'yyyy/MM/dd',
+};
+
+/**
+ * For extracting invoice link from the page.
+ */
+export type InvoiceColumn = {
+    name: string;
+    value: string;
+    html?: string;
+};
+
+export type InvoiceRow = {
+    columns: InvoiceColumn[];
+};
+
+export type InvoiceData = {
+    rows: InvoiceRow[];
+};
