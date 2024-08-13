@@ -52,18 +52,7 @@ export type FieldglassInvoice = {
     total: number;
 };
 
-export type FieldglassCreditMemo = {
-    id: string;
-    portal_name: string;
-    credit_memo_number: string;
-    po_number?: string;
-    buyer: string;
-    status: string;
-    credit_memo_date: Date;
-    due_date?: Date;
-    currency: string;
-    total: number;
-};
+export type FieldglassCreditMemo = FieldglassInvoice;
 
 export enum MontoDataTypes {
     INVOICE = "Invoice",
@@ -72,11 +61,13 @@ export enum MontoDataTypes {
 
 export type FieldglassExtractors = {
     invoices?: BaseExtractor<FieldglassInvoice, MontoInvoice>;
+    creditMemos?: BaseExtractor<FieldglassCreditMemo, MontoInvoice>;
 };
 
 export type FieldglassScraperOptions = BaseScraperOptions<FieldglassAuthentication> & {
     extractors: {
         invoices?: BaseExtractorOptions;
+        creditMemos?: BaseExtractorOptions;
     };
 };
 

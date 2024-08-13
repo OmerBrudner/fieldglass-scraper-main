@@ -88,9 +88,8 @@ const credentials = {
     password: <string>input.user.password ?? (await getPassword(<string>input.user.passwordKey)),
 };
 
-
 /*
-  Set extractors, currently only invoice extractor is supported for Sy scraper
+  Set extractors for invoices
 **/
 const extractors = <Record<string, BaseExtractorOptions>>{};
 if (input.invoices) {
@@ -98,6 +97,15 @@ if (input.invoices) {
         dateRange: {
             fromDate: invoices?.fromDate,
             toDate: invoices?.toDate,
+        },
+    };
+}
+// Set extractors for credit memos
+if (input.creditMemos) {
+    extractors.creditMemos = <BaseExtractorOptions>{
+        dateRange: {
+            fromDate: input.creditMemos?.fromDate,
+            toDate: input.creditMemos?.toDate,
         },
     };
 }
@@ -175,7 +183,7 @@ const authenticationSuccessEventHandler = async () => {
   Run scraper
 **/
 
- await scraper
+await scraper
     .init()
     .then((scraper) => scraper.scrape())
     .catch(async (err) => await errorEventHandler(err))

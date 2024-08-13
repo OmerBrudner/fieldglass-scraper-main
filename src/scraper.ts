@@ -1,10 +1,17 @@
 import { Page } from "puppeteer";
 
 import { BaseDataTypes, BaseUtilityOptions, MontoInvoice } from "@montopay/base-scraper/types";
-import { FieldglassAuthentication, FieldglassCredentials, FieldglassExtractors, FieldglassInvoice, FieldglassScraperOptions } from "./types.js";
+import {
+    FieldglassAuthentication,
+    FieldglassCredentials,
+    FieldglassExtractors,
+    FieldglassInvoice,
+    FieldglassScraperOptions,
+    FieldglassCreditMemo
+} from "./types.js";
 
 import { BaseExtractor, BaseHeadlessScraper } from "@montopay/base-scraper";
-import { getFieldglassAuthentication, getFieldglassInvoices, mapFieldglassInvoice } from "./utils.js";
+import { getFieldglassAuthentication, getFieldglassInvoices, mapFieldglassTransaction, getFieldglassCreditMemos } from "./utils.js";
 
 import { ScraperNotInitializedError } from "@montopay/base-scraper/errors";
 
@@ -23,6 +30,9 @@ export class FieldglassScraper extends BaseHeadlessScraper<FieldglassCredentials
 
         if (options.extractors.invoices) {
             this.extractors.invoices = new BaseExtractor<FieldglassInvoice, MontoInvoice>(options.extractors.invoices);
+        }
+        if (options.extractors.creditMemos) {
+            this.extractors.creditMemos = new BaseExtractor<FieldglassCreditMemo, MontoInvoice>(options.extractors.creditMemos);
         }
     }
 
@@ -44,6 +54,8 @@ export class FieldglassScraper extends BaseHeadlessScraper<FieldglassCredentials
             this.authentication = await getFieldglassAuthentication(this._credentials, page, options);
             this.emit("authentication:success", this.authentication);
         }
+
+        // Handle Invoices
         if (this.extractors.invoices) {
             const extractor = this.extractors.invoices;
             const { fromDate, toDate } = extractor;
@@ -51,15 +63,32 @@ export class FieldglassScraper extends BaseHeadlessScraper<FieldglassCredentials
 
             const eventType = "data";
             const eventListener = (type: BaseDataTypes, data: FieldglassInvoice) => {
-                // The map function works for both invoice and credit memo
-                if (type === BaseDataTypes.INVOICE || type === BaseDataTypes.CREDIT_MEMO) {
-                    const mappedInvoice = mapFieldglassInvoice(data, { username: this.credentials.username }, options);
+                if (type === BaseDataTypes.INVOICE) {
+                    const mappedInvoice = mapFieldglassTransaction(data, type, { username: this.credentials.username }, options);
                     extractor.mapped.push(mappedInvoice);
                 }
             };
             this.on(eventType, eventListener);
-
             extractor.data = await getFieldglassInvoices(this.authentication, fromDate, toDate, options);
+            this.off(eventType, eventListener);
+        }
+        
+        // Handle Credit Memos
+        if (this.extractors.creditMemos) {
+            const extractor = this.extractors.creditMemos;
+            const { fromDate, toDate } = extractor;
+            extractor.clean();
+
+            const eventType = "data";
+            const eventListener = (type: BaseDataTypes, data: FieldglassCreditMemo) => {
+                // The map function works for both invoice and credit memo
+                if (type === BaseDataTypes.CREDIT_MEMO) {
+                    const mappedCreditMemo = mapFieldglassTransaction(data, type, { username: this.credentials.username }, options);
+                    extractor.mapped.push(mappedCreditMemo);
+                }
+            };
+            this.on(eventType, eventListener);
+            extractor.data = await getFieldglassCreditMemos(this.authentication, fromDate, toDate, options);
             this.off(eventType, eventListener);
         }
         if (verbose) {
@@ -69,5 +98,4 @@ export class FieldglassScraper extends BaseHeadlessScraper<FieldglassCredentials
         return this;
     }
 }
-
 

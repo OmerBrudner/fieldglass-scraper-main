@@ -4,7 +4,7 @@ import { cloneDeep } from "lodash-es";
 import { format, sub } from "date-fns";
 import pRetry from "p-retry";
 import delay from 'delay';
-import { BaseDataTypes, BaseUtilityOptions, GenericInvoice, MontoInvoice } from "@montopay/base-scraper/types";
+import { BaseDataTypes, BaseUtilityOptions, MontoInvoice } from "@montopay/base-scraper/types";
 import {
     FieldglassAuthentication,
     FieldglassCredentials,
@@ -15,8 +15,6 @@ import {
     InvoiceData,
     InvoiceRow,
     FieldglassCreditMemo,
-    CreditMemoData,
-    CreditMemoRow
 } from "./types.ts";
 import { AuthenticationBadCredentialsError } from "@montopay/base-scraper/errors";
 import {
@@ -35,22 +33,14 @@ import {
     TIME_BETWEEN_REQUESTS,
     USERNAME_INPUT_SELECTOR,
     WRONG_IDENTIFIERS_HEADER_SELECTOR,
-    DATA_TYPE_MAP,
     COOKIE_STATEMENT_SELECTOR,
     COOKIE_STATEMENT_BUTTON_SELECTOR,
-    DROPDOWN_LIST_SELECTOR,
-    MAXIMUM_DROPDOWN_SELECTOR,
-    NEXT_BUTTON,
-    INVOICES_TABLE_CLASS,
     FETCH_PAST_LINK_HEADERS,
     CURRENT_LINK_SELECTOR,
     PAST_LINK_SELECTOR,
     MAX_ROWS,
 } from "./constants.ts";
 import { cacheGet, cacheSet, cacheLoad } from "./cache.ts";
-import { has } from 'node_modules/cheerio/dist/esm/api/traversing.js';
-import { Url } from 'url';
-import { log } from 'console';
 import { Sentry } from '../../base-scraper/dist/src/utils/sentry.js';
 /**
  * Getting the authentication tokens using Puppeteer
@@ -138,14 +128,13 @@ export async function getFieldglassAuthentication(credentials: FieldglassCredent
 /**
  * Fetches the current invoices from Fieldglass within a specified date range.
  * Handles pagination but probably it's  not needed
- * @param {FieldglassAuthentication} authentication - Object containing authentication details for accessing Fieldglass.
- * @param {string} fromDate - The start date for fetching invoices, formatted as an ISO string
- * @param {string} toDate - The end date for fetching invoices, formatted as an ISO string 
- * @param {BaseUtilityOptions} [options={}] - Optional configuration object that may include a logger for debugging and additional settings.
+ * @param authentication - Object containing authentication details for accessing Fieldglass.
+ * @param fromDate - The start date for fetching invoices, string
+ * @param toDate - The end date for fetching invoices, string
  *
- * @returns {Promise<FieldglassInvoice[]>} - A promise that resolves to an array of `FieldglassInvoice` objects containing details of the current invoices.
+ * @returns Promise<FieldglassInvoice[]> - A promise that resolves to an array of `FieldglassInvoice` objects containing details of the current invoices.
  *
- * @throws {Error} - Throws an error if new Curent links found, because this situation is not handled.
+ * Throws an error if new Curent links found, because this situation is not handled.
  */
 export async function getFieldglassCurrentInvoices(
     authentication: FieldglassAuthentication, fromDate: string, toDate: string, options: BaseUtilityOptions = {}):
@@ -233,7 +222,7 @@ export async function getFieldglassCurrentInvoices(
         },
     );
 
-    const invoicesLinks = getLinks(data);
+    const invoicesLinks = getLinks(data, options);
     if (invoicesLinks.length === 0) {
         logger?.info('No invoices found');
         console.log('No invoices found');
@@ -242,7 +231,8 @@ export async function getFieldglassCurrentInvoices(
     /** 
      * if number of links is more than 0, throw an error beacuse new links are found and this situation is not handled
      * */
-    throw new Error('New Curent links found, need to be handled');
+    Sentry.captureMessage('New Current links found, need to be handled');
+    throw new Error('New Current links found, need to be handled');
 }
 /**
     * Gets the past invoices from Fieldglass.
@@ -341,7 +331,7 @@ export async function getFieldglassPastInvoices(
             },
         );
 
-        const invoicesLinks = getLinks(data);
+        const invoicesLinks = getLinks(data, options);
         if (invoicesLinks.length === 0) {
             logger?.info('No invoices found');
             console.log('No invoices found');
@@ -413,6 +403,7 @@ export async function getFieldglassPastInvoices(
             pageNumber++;
             // Throw an error due to unexpected case where invoicesLinks are lower than the totalInvoices
             logger?.info('New Past links found, need to be handled');
+            Sentry.captureMessage('New Past links found, probably because there are more than 1000 invoices, need to be handled');
             throw new Error('New Past links found, need to be handled');
         }
     } while (hasNextPage);
@@ -427,12 +418,11 @@ export async function getFieldglassPastInvoices(
  * 
  * Handling the case when new links are found with an error
  * 
-* @param {FieldglassAuthentication} authentication - The authentication details required for accessing Fieldglass invoices, including cookies and session identifiers.
- * @param {string} fromDate - The start date for fetching invoices, formatted as 'YYYY-MM-DD'.
- * @param {string} toDate - The end date for fetching invoices, formatted as 'YYYY-MM-DD'.
- * @param {BaseUtilityOptions} [options={}] - Optional settings for logging and other utility options.
+* @param authentication - The authentication details required for accessing Fieldglass invoices, including cookies and session identifiers.
+ * @param fromDate - The start date for fetching invoices, string
+ * @param toDate - The end date for fetching invoices, string
  * 
- * @returns {Promise<FieldglassInvoice[]>} A promise that resolves to an array of `FieldglassInvoice` objects, representing the consolidated invoices from both the current and past invoice endpoints.
+ * @returns Promise<FieldglassInvoice[]> A promise that resolves to an array of `FieldglassInvoice` objects, representing the consolidated invoices from both the current and past invoice endpoints.
  * 
  */
 export async function getFieldglassInvoices(
@@ -443,8 +433,8 @@ export async function getFieldglassInvoices(
         const pastInvoices = await getFieldglassPastInvoices(authentication, fromDate, toDate, options);
         return [...currentInvoices, ...pastInvoices];
     } catch (error: any) {
-        if (error.message().includes('New Curent links found')) {
-            Sentry.captureMessage('New Curent links found, need to be handled');
+        if (error.message.includes('New Current links found')) {
+            Sentry.captureMessage('New Current links found, need to be handled');
         }
         throw error;
     }
@@ -454,12 +444,11 @@ export async function getFieldglassInvoices(
  * 
  * This function fetches credit memos from the Fieldglass API using the specified date range and authentication details, handling potential errors and logging messages as needed. If new credit memo links are found, an error is thrown for further handling.
  * 
- * @param {FieldglassAuthentication} authentication - The authentication details required for accessing Fieldglass credit memos, including cookies and session identifiers.
- * @param {string} fromDate - The start date for fetching credit memos, formatted as 'YYYY-MM-DD'.
- * @param {string} toDate - The end date for fetching credit memos, formatted as 'YYYY-MM-DD'.
- * @param {BaseUtilityOptions} [options={}] - Optional settings for logging and other utility options.
+ * @param authentication - The authentication details required for accessing Fieldglass credit memos, including cookies and session identifiers.
+ * @param fromDate - The start date for fetching credit memos, string
+ * @param toDate - The end date for fetching credit memos, string
  * 
- * @returns {Promise<FieldglassCreditMemo[]>} A promise that resolves to an array of `FieldglassCreditMemo` objects, representing the current credit memos fetched from Fieldglass.
+ * @returns Promise<FieldglassCreditMemo[] A promise that resolves to an array of `FieldglassCreditMemo` objects, representing the current credit memos fetched from Fieldglass.
  * 
  * @throws {Error} Throws an error if there is an issue retrieving credit memos or if new credit memo links are found and need to be handled.
  */
@@ -544,27 +533,26 @@ export async function getFieldglassCurrentCreditMemos(
         }
     );
 
-    const creditMemoLinks = getLinks(data);
+    const creditMemoLinks = getLinks(data, options);
     if (creditMemoLinks.length === 0) {
         logger?.info('No credit memos found');
         console.log('No credit memos found');
         return creditMemos;
     }
-
+    Sentry.captureMessage('New Curent links found, need to be handled');
     throw new Error('New Current credit memo links found, need to be handled');
 
 }
 /**
  * Retrieves past credit memos from Fieldglass based on the provided date range and authentication details.
  * 
- * @param {FieldglassAuthentication} authentication - The authentication details required for accessing Fieldglass credit memos, including cookies and session identifiers.
- * @param {string} fromDate - The start date for fetching credit memos, formatted as 'YYYY-MM-DD'.
- * @param {string} toDate - The end date for fetching credit memos, formatted as 'YYYY-MM-DD'.
- * @param {BaseUtilityOptions} [options={}] - Optional settings for logging and other utility options.
+ * @param authentication - The authentication details required for accessing Fieldglass credit memos, including cookies and session identifiers.
+ * @param fromDate - The start date for fetching credit memos, string
+ * @param toDate - The end date for fetching credit memos, string
  * 
- * @returns {Promise<FieldglassCreditMemo[]>} A promise that resolves to an array of `FieldglassCreditMemo` objects, representing the past credit memos fetched from Fieldglass.
+ * @returns Promise<FieldglassCreditMemo[]> A promise that resolves to an array of `FieldglassCreditMemo` objects, representing the past credit memos fetched from Fieldglass.
  * 
- * @throws {Error} Throws an error if there is an issue retrieving credit memos or if new credit memo links are found and need to be handled.
+ * @Throws an error if there is an issue retrieving credit memos or if new credit memo links are found and need to be handled.
  * 
 */
 export async function getFieldglassPastCreditMemos(
@@ -656,28 +644,28 @@ export async function getFieldglassPastCreditMemos(
         },
     );
 
-    const creditMemoLinks = getLinks(data);
+    const creditMemoLinks = getLinks(data, options);
     if (creditMemoLinks.length === 0) {
         logger?.info('No credit memos found');
         return creditMemos;
     }
+    Sentry.captureMessage('New Past links found, need to be handled');
     throw new Error('New Current credit memo links found, need to be handled');
 }
 /**
  * Retrieves both current and past credit memos from Fieldglass based on the provided date range and authentication details.
  * 
- * @param {Page} page - The page object used for navigation and interaction, typically provided by a web scraping or automation library like Puppeteer.
- * @param {FieldglassAuthentication} authentication - The authentication details required for accessing Fieldglass credit memos, including cookies and session identifiers.
- * @param {string} fromDate - The start date for fetching credit memos, formatted as 'YYYY-MM-DD'.
- * @param {string} toDate - The end date for fetching credit memos, formatted as 'YYYY-MM-DD'.
- * @param {BaseUtilityOptions} [options={}] - Optional settings for logging and other utility options.
+ * @param page - The page object used for navigation and interaction, typically provided by a web scraping or automation library like Puppeteer.
+ * @param authentication - The authentication details required for accessing Fieldglass credit memos, including cookies and session identifiers.
+ * @param fromDate - The start date for fetching credit memos, formatted as 'YYYY-MM-DD'.
+ * @param toDate - The end date for fetching credit memos, formatted as 'YYYY-MM-DD'.
+ * @param options - Optional settings for logging and other utility options.
  * 
- * @returns {Promise<FieldglassCreditMemo[]>} A promise that resolves to an array of `FieldglassCreditMemo` objects, representing the credit memos fetched from Fieldglass.
+ * @returns Promise<FieldglassCreditMemo[]> A promise that resolves to an array of `FieldglassCreditMemo` objects, representing the credit memos fetched from Fieldglass.
  * 
- * @throws {Error} Throws an error if there is an issue retrieving credit memos or if new credit memo links are found and need to be handled.
+ * @Throws an error if there is an issue retrieving credit memos or if new credit memo links are found and need to be handled.
  */
 export async function getFieldglassCreditMemos(
-    page: Page,
     authentication: FieldglassAuthentication, fromDate: string, toDate: string, options: BaseUtilityOptions = {}
 ): Promise<FieldglassCreditMemo[]> {
     try {
@@ -685,14 +673,13 @@ export async function getFieldglassCreditMemos(
         const pastCreditMemos = await getFieldglassPastCreditMemos(authentication, fromDate, toDate, options);
         return [...currentCreditMemos, ...pastCreditMemos];
     } catch (error: any) {
-        if (error.message().includes('New Curent links found')) {
+        if (error.message.includes('New Curent links found')) {
             Sentry.captureMessage('New Curent links found, need to be handled');
         }
         throw error;
     }
 
 }
-
 /**
  * Parses the HTML content of an invoice page and extracts the invoice details.
  * @param html - The HTML content of the invoice page.
@@ -742,7 +729,6 @@ function getFieldglassInvoiceDetails(link: string, html: string): FieldglassInvo
         total: fgTotal
     } satisfies FieldglassInvoice;
 }
-
 /**
  * Extracts data from the script content 
  * @param scriptContent - The content of the script tag.
@@ -781,7 +767,6 @@ function extractDataFromScript(scriptContent: string): { status: string; submitD
         buyer: fgBuyer,
     };
 }
-
 /**
  * Parse Fieldglass invoice.
  */
@@ -794,30 +779,30 @@ export function parseFieldglassInvoice(invoice: FieldglassInvoice, options: Base
     }
     return parsedInvoice;
 }
-
 /**
- * Maps a FieldglassInvoice object to a MontoInvoice object.
- * @param fieldglassInvoice - The FieldglassInvoice object to map.
+ * Maps a Fieldglass transaction (invoice or credit memo) object to a MontoInvoice object.
+ * @param fieldglassTransaction - The Fieldglass document object to map.
  * @returns A MontoInvoice object containing the mapped details.
  */
-export function mapFieldglassInvoice(
-    fieldglassInvoice: FieldglassInvoice,
+export function mapFieldglassTransaction(
+    fieldglassTransaction: FieldglassInvoice | FieldglassCreditMemo,
+    type: BaseDataTypes,
     overrides: { [Property in keyof MontoInvoice]?: MontoInvoice[Property] } = {},
     options: BaseUtilityOptions = {},
 ): MontoInvoice {
     const { onData, onError } = options;
     return {
-        portal_name: fieldglassInvoice.portal_name,
-        // type: 
-        id_on_portal: fieldglassInvoice.id,
-        invoice_number: fieldglassInvoice.invoice_number,
-        po_number: fieldglassInvoice.po_number,
-        buyer: fieldglassInvoice.buyer,
-        status: mapStatusTextToEnum(fieldglassInvoice.status),
-        invoice_date: fieldglassInvoice.invoice_date,
-        due_date: fieldglassInvoice.due_date,
-        currency: fieldglassInvoice.currency,
-        total: fieldglassInvoice.total,
+        portal_name: fieldglassTransaction.portal_name,
+        type: type,
+        id_on_portal: fieldglassTransaction.id,
+        invoice_number: fieldglassTransaction.invoice_number,
+        po_number: fieldglassTransaction.po_number,
+        buyer: fieldglassTransaction.buyer,
+        status: mapStatusTextToEnum(fieldglassTransaction.status),
+        invoice_date: fieldglassTransaction.invoice_date,
+        due_date: fieldglassTransaction.due_date,
+        currency: fieldglassTransaction.currency,
+        total: fieldglassTransaction.total,
         ...overrides,
     } as MontoInvoice;
 
@@ -826,7 +811,6 @@ export function mapFieldglassInvoice(
      */
 
 }
-
 /**
  * Creating an object to map the status text to the enum
  */
@@ -856,9 +840,10 @@ function mapStatusTextToEnum(statusText: string): MontoInvoiceStatus {
  * @param html 
  * @returns links to the past invoices
  */
-function getLinks(html: string): string[] {
+function getLinks(html: string, options: BaseUtilityOptions = {})
+    : string[] {
+    const { logger } = options;
     const links: string[] = [];
-
     const $ = cheerio.load(html);
 
     const title = $('title').text().trim();
@@ -879,7 +864,7 @@ function getLinks(html: string): string[] {
         }
 
         if (rows.length === 0) {
-            throw new Error("data.rows.length === 0");
+            logger?.info('No transactions links found');
             return;
         }
         rows.forEach((row) => {
