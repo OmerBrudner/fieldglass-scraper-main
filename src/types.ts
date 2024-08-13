@@ -16,12 +16,6 @@ export type FieldglassInput = FromSchema<typeof fieldglassInputSchema>;
 
 export type FieldglassCredentials = BaseCredentials;
 
-// export type FieldglassCredentials = {
-//     rootUrl: string;
-//     userName: string;
-//     password: string;
-// }
-
 export type CacheData = {
     data: FieldglassAuthentication;
     expiration: number;
@@ -34,25 +28,8 @@ export type FieldglassAuthentication = {
     expiration: number;
     rootUrl: string;
     username: string;
+    dateFormat: string;
 }
-
-// export type MontoInvoice = {
-//     portal_name: string;
-//     // type: MontoDataTypes;
-//     id_on_portal: string;
-//     invoice_number: string;
-//     portal_invoice_number?: string;
-//     po_number?: string;
-//     buyer: string;
-//     status: string;
-//     invoice_date: Date;
-//     due_date?: Date;
-//     currency: string;
-//     total: number;
-//     portal_user_id?: string;
-//     portal_user?: string;
-//     username?: string;
-// };
 
 export enum MontoInvoiceStatus {
     APPROVED = "Approved",
@@ -70,6 +47,19 @@ export type FieldglassInvoice = {
     buyer: string;
     status: string;
     invoice_date: Date;
+    due_date?: Date;
+    currency: string;
+    total: number;
+};
+
+export type FieldglassCreditMemo = {
+    id: string;
+    portal_name: string;
+    credit_memo_number: string;
+    po_number?: string;
+    buyer: string;
+    status: string;
+    credit_memo_date: Date;
     due_date?: Date;
     currency: string;
     total: number;
@@ -107,16 +97,32 @@ export const formatMapping: { [key: string]: string } = {
 /**
  * For extracting invoice link from the page.
  */
+export type InvoiceData = {
+    rows: InvoiceRow[];
+};
+export type InvoiceRow = {
+    columns: InvoiceColumn[];
+};
 export type InvoiceColumn = {
     name: string;
     value: string;
     html?: string;
 };
 
-export type InvoiceRow = {
-    columns: InvoiceColumn[];
+/**
+ * For extracting credit memos details from the page.
+ */
+// Define types similar to the ones used for invoices
+export type CreditMemoData = {
+    rows: CreditMemoRow[];
 };
 
-export type InvoiceData = {
-    rows: InvoiceRow[];
+export type CreditMemoRow = {
+    columns: CreditMemoColumn[];
+};
+
+export type CreditMemoColumn = {
+    name: string;
+    value: string;
+    html?: string;
 };

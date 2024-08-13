@@ -4,7 +4,7 @@ import { BaseDataTypes, BaseUtilityOptions, MontoInvoice } from "@montopay/base-
 import { FieldglassAuthentication, FieldglassCredentials, FieldglassExtractors, FieldglassInvoice, FieldglassScraperOptions } from "./types.js";
 
 import { BaseExtractor, BaseHeadlessScraper } from "@montopay/base-scraper";
-import { getFieldglassAuthentication, getFieldglassPastInvoices, mapFieldglassInvoice } from "./utils.js";
+import { getFieldglassAuthentication, getFieldglassInvoices, mapFieldglassInvoice } from "./utils.js";
 
 import { ScraperNotInitializedError } from "@montopay/base-scraper/errors";
 
@@ -51,14 +51,15 @@ export class FieldglassScraper extends BaseHeadlessScraper<FieldglassCredentials
 
             const eventType = "data";
             const eventListener = (type: BaseDataTypes, data: FieldglassInvoice) => {
-                if (type === BaseDataTypes.INVOICE) {
+                // The map function works for both invoice and credit memo
+                if (type === BaseDataTypes.INVOICE || type === BaseDataTypes.CREDIT_MEMO) {
                     const mappedInvoice = mapFieldglassInvoice(data, { username: this.credentials.username }, options);
                     extractor.mapped.push(mappedInvoice);
                 }
             };
             this.on(eventType, eventListener);
 
-            extractor.data = await getFieldglassPastInvoices(page, this.authentication, fromDate, toDate, options);
+            extractor.data = await getFieldglassInvoices(this.authentication, fromDate, toDate, options);
             this.off(eventType, eventListener);
         }
         if (verbose) {

@@ -65,6 +65,21 @@ export const fieldglassInputSchema = {
             required: [],
             additionalProperties: false,
         },
+        creditMemos: {
+            type: "object",
+            properties: {
+                fromDate: {
+                    type: "string",
+                    format: "date",
+                },
+                toDate: {
+                    type: "string",
+                    format: "date",
+                },
+            },
+            required: [],
+            additionalProperties: false,
+        },
     },
     required: ["user"],
     additionalProperties: false,
