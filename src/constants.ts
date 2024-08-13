@@ -167,12 +167,3 @@ export const MAXIMUM_DROPDOWN_SELECTOR = '#listitem7innerListBoxgridpagerlistpas
 export const DATA_ROWS_REGEX = 'div[style*="margin-right: 7px; float: right;"]';
 export const NEXT_BUTTON = 'div[title="Next"]';
 
-
-
-export const INVOICE_MAPPED_STATUSES = {
-    // Define statuses based on Fieldglass mappings
-};
-
-export const DATA_TYPE_MAP = {
-    // Define data type mappings
-};

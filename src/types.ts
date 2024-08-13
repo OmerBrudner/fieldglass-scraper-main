@@ -1,5 +1,4 @@
 import { FromSchema } from "json-schema-to-ts";
-import { Cookie } from "puppeteer";
 
 import { BaseExtractor } from "@montopay/base-scraper";
 import {
