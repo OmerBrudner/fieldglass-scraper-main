@@ -41,7 +41,7 @@ export const PAST_INVOICE_BODY = {
     "past_invoice_supplier_list_name_sch": "",
     "past_invoice_supplier_list_cons_invoice_ref_sch": "",
     "past_invoice_supplier_list_buyer_name_sch": "",
-    // "fgGridPager": "1",
+    "fgGridPager": "1",
     "past_invoice_supplier_list_refresh": "",
     "ajaxCall": "true",
 }

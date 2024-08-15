@@ -89,6 +89,7 @@ export const formatMapping: { [key: string]: string } = {
  */
 export type InvoiceData = {
     rows: InvoiceRow[];
+    maxRowCountReached: boolean;    
 };
 export type InvoiceRow = {
     columns: InvoiceColumn[];

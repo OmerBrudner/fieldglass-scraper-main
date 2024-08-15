@@ -269,7 +269,6 @@ export async function getFieldglassPastInvoices(
 
     const invoices: FieldglassInvoice[] = [];
     let hasNextPage = true;
-    let pageNumber = 1;
 
     do {
         const pastInvoicesBody = new URLSearchParams({
@@ -278,7 +277,6 @@ export async function getFieldglassPastInvoices(
             "filterEndDate": formatedToDate,
             "sgjy": `${authentication.sgjy}`,
             "__cid": `${authentication.__cid}`,
-            "fgGridPage": `${pageNumber}`,
         });
         /*
         * Geting the response of the past invoices deployment 
@@ -330,6 +328,8 @@ export async function getFieldglassPastInvoices(
                 },
             },
         );
+
+        const maxRowCountReach = getmaxRowCountReached(data, options);
 
         const invoicesLinks = getLinks(data, options);
         if (invoicesLinks.length === 0) {
@@ -397,13 +397,13 @@ export async function getFieldglassPastInvoices(
         /**
          * Handling pagination & total invoices counter
          */
-        const totalPages = Math.ceil(invoicesLinks.length / MAX_ROWS);
-        hasNextPage = pageNumber < totalPages;
-        if (hasNextPage) {
-            pageNumber++;
+        // const totalPages = Math.ceil(invoicesLinks.length / MAX_ROWS);
+        // hasNextPage = pageNumber < totalPages;
+        hasNextPage = (invoicesLinks.length > MAX_ROWS)
+        if (hasNextPage || maxRowCountReach) {
             // Throw an error due to unexpected case where invoicesLinks are lower than the totalInvoices
             logger?.info('New Past links found, need to be handled');
-            Sentry.captureMessage('New Past links found, probably because there are more than 1000 invoices, need to be handled');
+            Sentry.captureException('New Past links found, probably because there are more than 1000 invoices, need to be handled');
             throw new Error('New Past links found, need to be handled');
         }
     } while (hasNextPage);
@@ -852,7 +852,6 @@ function getLinks(html: string, options: BaseUtilityOptions = {})
     $(selector).each((_, element) => {
         const jsonString = $(element).text().trim();
         const objectData: InvoiceData = JSON.parse(jsonString);
-
         const rows: InvoiceRow[] = objectData.rows;
 
         if (!rows) {
@@ -881,4 +880,18 @@ function getLinks(html: string, options: BaseUtilityOptions = {})
     return links;
 }
 
+function getmaxRowCountReached(html: string, options: BaseUtilityOptions = {})
+    : boolean | null {
+    const { logger } = options;
+    const $ = cheerio.load(html);
+    const title = $('title').text().trim();
+    const selector = title.includes('Past') ? PAST_LINK_SELECTOR : CURRENT_LINK_SELECTOR;
+    let maxRowCountReached: boolean | null = null;
 
+    $(selector).each((_, element) => {
+        const jsonString = $(element).text().trim();
+        const objectData: InvoiceData = JSON.parse(jsonString);
+        maxRowCountReached = objectData.maxRowCountReached;
+    });
+    return maxRowCountReached;
+}
