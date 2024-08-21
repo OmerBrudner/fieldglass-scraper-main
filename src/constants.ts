@@ -161,7 +161,8 @@ export const COOKIE_STATEMENT_SELECTOR = "#truste-consent-track";
 export const COOKIE_STATEMENT_BUTTON_SELECTOR = "#truste-consent-button"
 export const USERNAME_INPUT_SELECTOR = "#usernameId_new";
 export const PASSWORD_INPUT_SELECTOR = "#passwordId_new";
-export const WRONG_IDENTIFIERS_HEADER_SELECTOR = ".error_msg > .errorDiv";
+export const WRONG_IDENTIFIERS_HEADER_SELECTOR = "div[aria-label*='The username or password is incorrect']";
+export const SESSION_ALREADY_ACTIVE_SELECTOR = "div[aria-label*='There is already an active SAP Fieldglass session running']";
 export const DROPDOWN_LIST_SELECTOR = '#dropdownlistWrappergridpagerlistpast_invoice_supplier_list';
 export const MAXIMUM_DROPDOWN_SELECTOR = '#listitem7innerListBoxgridpagerlistpast_invoice_supplier_list > span';
 export const DATA_ROWS_REGEX = 'div[style*="margin-right: 7px; float: right;"]';

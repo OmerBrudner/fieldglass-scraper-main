@@ -16,7 +16,10 @@ import {
     InvoiceRow,
     FieldglassCreditMemo,
 } from "./types.ts";
-import { AuthenticationBadCredentialsError } from "@montopay/base-scraper/errors";
+import {
+    AuthenticationBadCredentialsError
+} from "@montopay/base-scraper/errors";
+import { SessionAlreadyActiveError } from "./errors.ts";
 import {
     PAST_INVOICE_BODY,
     PAST_DEFAULT_HEADERS,
@@ -33,6 +36,7 @@ import {
     TIME_BETWEEN_REQUESTS,
     USERNAME_INPUT_SELECTOR,
     WRONG_IDENTIFIERS_HEADER_SELECTOR,
+    SESSION_ALREADY_ACTIVE_SELECTOR,
     COOKIE_STATEMENT_SELECTOR,
     COOKIE_STATEMENT_BUTTON_SELECTOR,
     FETCH_PAST_LINK_HEADERS,
@@ -92,6 +96,10 @@ export async function getFieldglassAuthentication(credentials: FieldglassCredent
 
         if (await page.$(WRONG_IDENTIFIERS_HEADER_SELECTOR)) {
             throw new AuthenticationBadCredentialsError(`Bad credentials for username ${username}`);
+        }
+
+        if (await page.$(SESSION_ALREADY_ACTIVE_SELECTOR)) {
+            throw new SessionAlreadyActiveError("There is already an active SAP Fieldglass session running.");
         }
 
         const sgjy = await page.evaluate(() => (window as unknown as FgWindow)._CSRF_TOKEN_VALUE);
